@@ -43,13 +43,15 @@ def predict(img):
         return -1, 'none'
 
     # predict the image class
-    pred = model.predict(img.reshape(1, *img.shape)[0:480, 80: 560])
+    pred = model.predict(img.reshape(1, *img.shape)[0:480, 80: 560]).flatten()
+    indices = pred.argsort()[::-1]
 
-    # get the index of the maximum prediction value
-    idx = np.argmax(pred)
+    score_dict = {}
+    for i in indices.flatten():
+        print(i)
+        score_dict[CATEGORY[i]] = pred[i]
 
-    # return the index along with its associated category
-    return idx, CATEGORY[idx]
+    return score_dict
 
 def check_background():
     frames = glob.glob(f"{SAVE_FILE}/gopro/*")
@@ -66,27 +68,32 @@ def get_background_score(img):
     mask = fgbg.apply(img) / 255
     return np.sum(mask) / denom
 
-def run_ml(show=True, crop=True, prediction_threshold=5):
+def run_ml():
     check_background()
-    imgs = glob.glob(f"{SAVE_FILE}/input/*")
+    files = glob.glob(f"{SAVE_FILE}/input/*")
 
     total_scores = {}
-
-    if imgs:
-        for img in imgs:
+    if files:
+        for file in files:
+            img = cv2.imread(file)
             cv2.imshow('img', img)
-            idx, category = predict(img)
-            print(f'ML MODEL {idx}: {category}')
-            cv2.waitKey(0)
 
-            # idx, score_dict = predict(img)
-            for cat, score in score_dict:
-                if not cat in total_score:
-                    total_score[cat] = score[cat]
+            score_dict = predict(img)
+            print(f'ML MODEL {file}: {score_dict}')
+
+            for cat, score in score_dict.items():
+                if not cat in total_scores:
+                    total_scores[cat] = score
                 else:
-                    total_score[cat] += score[cat]
-            prediction = max(total_scores, key=stats.get)
-
+                    total_scores[cat] += score
+            
+            prediction = max(total_scores, key=total_scores.get)
+            print(prediction)
+            
+            cv2.waitKey(0)
+            # if prediction != CURRENT_BIN:
+            #     beep()
+            # updateDatabase(prediction)
 
     cv2.destroyAllWindows()
 
@@ -97,8 +104,7 @@ if __name__ == '__main__':
     model = load_model('deeptrash.h5')
     fgbg = cv2.createBackgroundSubtractorMOG2()
 
-    run_ml(show=True, crop=False)
-
+    run_ml()
     # schedule.every(30).seconds.do(run)
     # while True:
     #     scheduling.run_pending()
