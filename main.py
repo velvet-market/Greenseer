@@ -32,7 +32,7 @@ import os
 from keras.models import load_model
 import winsound
 
-FPS = 60
+FPS = 30
 SECONDS_BUFFER = 5
 NUM_FILES = 5
 CUTOFF_SCORE = 0.075
@@ -46,7 +46,7 @@ def predict(img):
         return -1, 'none'
 
     # predict the image class
-    pred = model.predict(img.reshape(1, *img.shape)[0:256, 0: 256], batch_size=1).flatten()
+    pred = model.predict(img.reshape(1, *img.shape), batch_size=1).flatten()
     indices = pred.argsort()[::-1]
 
     score_dict = {}
@@ -64,6 +64,7 @@ def check_background():
         if bg_score > CUTOFF_SCORE:
             cv2.imwrite(f"{SAVE_FILE}/input/{os.path.basename(frame)}", img)
             os.remove(frame)
+            os.remove(f"{SAVE_FILE}/gopro/cam_video.MP4")
 
 def get_background_score(img):
     denom = img.shape[0] * img.shape[1] * img.shape[2]
