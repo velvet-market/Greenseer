@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+
 import numpy as np
 import cv2
 import time
@@ -29,10 +30,11 @@ import time
 import glob
 import os
 from keras.models import load_model
-from playsound import playsound
+import winsound
 
 FPS = 60
 SECONDS_BUFFER = 5
+NUM_FILES = 5
 CUTOFF_SCORE = 0.075
 CATEGORY = ["nothing", "compost", "recycle", "trash"]
 CURRENT_BIN = "recycle"
@@ -44,18 +46,17 @@ def predict(img):
         return -1, 'none'
 
     # predict the image class
-    pred = model.predict(img.reshape(1, *img.shape)[0:480, 80: 560]).flatten()
+    pred = model.predict(img.reshape(1, *img.shape)[0:256, 0: 256], batch_size=1).flatten()
     indices = pred.argsort()[::-1]
 
     score_dict = {}
     for i in indices.flatten():
-        print(i)
         score_dict[CATEGORY[i]] = pred[i]
 
     return score_dict
 
 def check_background():
-    frames = glob.glob(f"{SAVE_FILE}/gopro/*")
+    frames = glob.glob(f"{SAVE_FILE}/gopro/*.jpg")
     for frame in frames:
         img = cv2.imread(frame)
         bg_score = get_background_score(img)
@@ -71,13 +72,19 @@ def get_background_score(img):
 
 def run_ml():
     check_background()
+
     files = glob.glob(f"{SAVE_FILE}/input/*")
+    if len(files) > 5:
+        indices = np.round(np.linspace(0, len(files) - 1, 5)).astype(int)
+        files = files[indices]
 
     total_scores = {}
     if files:
+        t0 = time.time()
+
         for file in files:
             img = cv2.imread(file)
-            cv2.imshow('img', img)
+            # cv2.imshow('img', img)
 
             score_dict = predict(img)
             print(f'ML MODEL {file}: {score_dict}')
@@ -88,6 +95,9 @@ def run_ml():
                 else:
                     total_scores[cat] += score
             cv2.waitKey(0)
+
+        t1 = time.time()
+        print(f"TOOK {t1-t0} SECONDS")
             
         prediction = max(total_scores, key=total_scores.get)
             
@@ -101,10 +111,10 @@ def run_ml():
     cv2.destroyAllWindows()
 
 def beep(correct):
-    if correct:
-        playsound(f"{SAVE_FILE}/test/good.wav")
+    if correct:  
+        winsound.PlaySound(f"{SAVE_FILE}/test/good.wav", winsound.SND_FILENAME)
     else:
-        playsound(f"{SAVE_FILE}/test/bad.wav")
+        winsound.PlaySound(f"{SAVE_FILE}/test/bad.wav", winsound.SND_FILENAME)
 
 if __name__ == '__main__':
     model = load_model('deeptrash.h5')
