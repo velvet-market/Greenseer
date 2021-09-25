@@ -29,6 +29,7 @@ import time
 import glob
 import os
 from keras.models import load_model
+from playsound import playsound
 
 FPS = 60
 SECONDS_BUFFER = 5
@@ -86,19 +87,24 @@ def run_ml():
                     total_scores[cat] = score
                 else:
                     total_scores[cat] += score
-            
-            prediction = max(total_scores, key=total_scores.get)
-            print(prediction)
-            
             cv2.waitKey(0)
-            # if prediction != CURRENT_BIN:
-            #     beep()
-            # updateDatabase(prediction)
+            
+        prediction = max(total_scores, key=total_scores.get)
+            
+        if prediction != CURRENT_BIN:
+            beep(correct=False)
+        else:
+            beep(correct=True)
+
+        # updateDatabase(prediction)
 
     cv2.destroyAllWindows()
 
-def beep_trash(category):
-    print('Running dump trash routine for', category, CATEGORY[category % 3])
+def beep(correct):
+    if correct:
+        playsound(f"{SAVE_FILE}/test/good.wav")
+    else:
+        playsound(f"{SAVE_FILE}/test/bad.wav")
 
 if __name__ == '__main__':
     model = load_model('deeptrash.h5')
