@@ -64,7 +64,7 @@ def check_background():
         if bg_score > CUTOFF_SCORE:
             cv2.imwrite(f"{SAVE_FILE}/input/{os.path.basename(frame)}", img)
             os.remove(frame)
-            os.remove(f"{SAVE_FILE}/gopro/cam_video.MP4")
+            # os.remove(f"{SAVE_FILE}/gopro/cam_video.MP4")
 
 def get_background_score(img):
     denom = img.shape[0] * img.shape[1] * img.shape[2]
