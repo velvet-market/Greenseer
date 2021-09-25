@@ -113,9 +113,9 @@ def run_ml():
 
 def beep(correct):
     if correct:  
-        winsound.PlaySound(f"{SAVE_FILE}/test/good.wav", winsound.SND_FILENAME)
+        winsound.PlaySound(f"{SAVE_FILE}/sounds/good.wav", winsound.SND_FILENAME)
     else:
-        winsound.PlaySound(f"{SAVE_FILE}/test/bad.wav", winsound.SND_FILENAME)
+        winsound.PlaySound(f"{SAVE_FILE}/sounds/bad.wav", winsound.SND_FILENAME)
 
 if __name__ == '__main__':
     model = load_model('deeptrash.h5')
