@@ -1,4 +1,3 @@
-   
 import pandas as pd
 import numpy as np
 import os
@@ -13,7 +12,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Model
 from keras.optimizers import Adam
 from keras import regularizers
-
+from constants import *
 
 def plot_history(history):
     loss_list = [s for s in history.history.keys() if 'loss' in s and 'val' not in s]
@@ -25,7 +24,6 @@ def plot_history(history):
         print('Loss is missing in history')
         return
 
-        ## As loss always exists
     epochs = range(1, len(history.history[loss_list[0]]) + 1)
 
     ## Loss
@@ -57,17 +55,14 @@ def plot_history(history):
     plt.legend()
     plt.show()
 
-
 base_model = MobileNet(weights='imagenet', include_top=False)
-
 x = base_model.output
 x = GlobalAveragePooling2D()(x)
 x = Dense(128, activation='relu', kernel_regularizer=regularizers.l2(5))(x)
 x = Dense(128, activation='relu', kernel_regularizer=regularizers.l2(5))(x)
-preds = Dense(4, activation='softmax')(x)
+preds = Dense(len(CATEGORY), activation='softmax')(x)
 
 model = Model(inputs=base_model.input, outputs=preds)
-
 
 for layer in model.layers[:-1]:
     layer.trainable = False
@@ -75,23 +70,18 @@ for layer in model.layers[:-1]:
 for layer in model.layers[-1:]:
     layer.trainable = True
 
-
 train_datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
 test_datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
 
-
-train_generator = train_datagen.flow_from_directory('data/train', target_size=(224, 224),
-                                                    color_mode='rgb', batch_size=50, class_mode='categorical',
+train_generator = train_datagen.flow_from_directory('data/train', target_size=(CROP_SIZE, CROP_SIZE),
+                                                    color_mode='rgb', batch_size=10, class_mode='categorical',
                                                     shuffle=True)
-
 
 validation_generator = test_datagen.flow_from_directory(
         'data/test',
-        target_size=(224, 224),
+        target_size=(CROP_SIZE, CROP_SIZE),
         batch_size=10,
         class_mode='categorical')
-
-
 
 model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
@@ -100,10 +90,10 @@ step_size_train = train_generator.n//train_generator.batch_size
 history = model.fit_generator(
         train_generator,
         steps_per_epoch=step_size_train,
-        epochs=20,
+        epochs=10,
         validation_data=validation_generator,
         validation_steps=50)
 
 plot_history(history)
 
-model.save('deeptrash.h5')
+model.save('models/test.h5')

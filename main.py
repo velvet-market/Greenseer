@@ -30,15 +30,9 @@ import time
 import glob
 import os
 from keras.models import load_model
+from constants import *
+from goProHero import *
 import winsound
-
-FPS = 30
-SECONDS_BUFFER = 5
-NUM_FILES = 5
-CUTOFF_SCORE = 0.075
-CATEGORY = ["nothing", "compost", "recycle", "trash"]
-CURRENT_BIN = "recycle"
-SAVE_FILE = "data"
 
 def predict(img):
     # if the size of the image is too small, report none
@@ -55,61 +49,73 @@ def predict(img):
 
     return score_dict
 
-def check_background():
-    frames = glob.glob(f"{SAVE_FILE}/gopro/*.jpg")
-    for frame in frames:
-        img = cv2.imread(frame)
+def check_background(frames):
+    kept_frames = []
+    for index, frame in enumerate(frames):
+        img = frame 
         bg_score = get_background_score(img)
-        print(f"{frame}: {bg_score}")
+        if PRINT:
+            print(f"{index}: {bg_score}")
+        
         if bg_score > CUTOFF_SCORE:
-            cv2.imwrite(f"{SAVE_FILE}/input/{os.path.basename(frame)}", img)
-            os.remove(frame)
-            # os.remove(f"{SAVE_FILE}/gopro/cam_video.MP4")
+            if SAVE:
+                cv2.imwrite(f"{SAVE_FILE}/input/{index}.jpg", img)
+            kept_frames.append(frame)
+    return kept_frames   
 
 def get_background_score(img):
     denom = img.shape[0] * img.shape[1] * img.shape[2]
     mask = fgbg.apply(img) / 255
     return np.sum(mask) / denom
 
-def run_ml():
-    check_background()
+def clean_images():
+    files = glob.glob(f"{SAVE_FILE}/input/*.jpg") + glob.glob(f"{SAVE_FILE}/gopro/*.jpg")
+    for file in files:
+        os.remove(file)
 
-    files = glob.glob(f"{SAVE_FILE}/input/*")
-    if len(files) > 5:
-        indices = np.round(np.linspace(0, len(files) - 1, 5)).astype(int)
+def run_ml(frames):
+    files = np.asarray(check_background(frames))
+
+    if len(files) > MIN_FILES:
+        indices = np.asarray(np.round(np.linspace(0, len(files) - 1, MIN_FILES)).astype(int))
         files = files[indices]
+    else:
+        return
 
+    # ====================================
+    t3 = time.time()
     total_scores = {}
-    if files:
-        t0 = time.time()
+    for index, file in enumerate(files):
+        img = file
+        # cv2.imshow('img', img)
 
-        for file in files:
-            img = cv2.imread(file)
-            # cv2.imshow('img', img)
+        score_dict = predict(img)
+        if PRINT:
+            print(f'ML MODEL {index}: {score_dict}')
 
-            score_dict = predict(img)
-            print(f'ML MODEL {file}: {score_dict}')
+        for cat, score in score_dict.items():
+            if not cat in total_scores:
+                total_scores[cat] = score
+            else:
+                total_scores[cat] += score
+        cv2.waitKey(0)
+    t4 = time.time()
+    print(f"MODEL TOOK {t4-t3} SECONDS")
+    # ====================================
+    
+    prediction = max(total_scores, key=total_scores.get)
+    print(f"TOTAL SCORES: {total_scores}")
+    print(f"PREDICTED VALUE: {prediction}")
+        
+    if prediction != CURRENT_BIN:
+        beep(correct=False)
+    else:
+        beep(correct=True)
 
-            for cat, score in score_dict.items():
-                if not cat in total_scores:
-                    total_scores[cat] = score
-                else:
-                    total_scores[cat] += score
-            cv2.waitKey(0)
-
-        t1 = time.time()
-        print(f"TOOK {t1-t0} SECONDS")
-            
-        prediction = max(total_scores, key=total_scores.get)
-            
-        if prediction != CURRENT_BIN:
-            beep(correct=False)
-        else:
-            beep(correct=True)
-
-        # updateDatabase(prediction)
+    # updateDatabase(prediction)        
 
     cv2.destroyAllWindows()
+    clean_images()
 
 def beep(correct):
     if correct:  
@@ -118,10 +124,21 @@ def beep(correct):
         winsound.PlaySound(f"{SAVE_FILE}/sounds/bad.wav", winsound.SND_FILENAME)
 
 if __name__ == '__main__':
-    model = load_model('deeptrash.h5')
+    model = load_model('models/deeptrash.h5')
     fgbg = cv2.createBackgroundSubtractorMOG2()
+    go_pro = GoProCamera.GoPro()
+    go_pro.mode(mode="0")
+    go_pro.video_settings(res="1080p", fps="60")
 
-    run_ml()
+    # t0 = time.time()
+    # reset_camera(go_pro)
+    # frames = video_stream(go_pro)
+    # run_ml(frames)
+    # t1 = time.time()
+    # print(f"TOTAL TOOK {t1-t0} SECONDS")
+
+    video_labels(go_pro, "plastic")
+
     # schedule.every(30).seconds.do(run)
     # while True:
     #     scheduling.run_pending()
